@@ -1,0 +1,11 @@
+sceptre
+troposphere
+awacs
+pystache
+requests
+google-auth
+google-api-python-client
+oauth2client
+inflection
+-e AccessControl
+
