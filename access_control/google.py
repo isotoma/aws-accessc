@@ -1,38 +1,40 @@
-from __future__ import print_function
+# Copyright (C) 2019 Isotoma Limited
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#      http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
 
 import os
-import sys
 
-from apiclient.discovery import build
-from httplib2 import Http
-from oauth2client import client, file, tools
+from google.oauth2 import service_account
+from googleapiclient.discovery import build
+from google.auth.transport.requests import Request
 
 
 class GoogleRoleManager:
 
-    SCOPES = 'https://www.googleapis.com/auth/admin.directory.user'
-    token_file = os.path.expanduser('~/.google_token.json')
-    creds_file = os.path.join(os.path.dirname(__file__), '..', 'google_credentials.json')
+    SCOPES = ['https://www.googleapis.com/auth/admin.directory.user']
+    SERVICE_ACCOUNT_FILE = os.path.join(os.path.dirname(__file__), '..', 'service_credentials.json')
 
-    def __init__(self, provider, prefix):
+    def __init__(self, provider, prefix, delegate_email):
+        self.creds = None
         self.provider = provider
         self.prefix = prefix
-        self.store = file.Storage(self.token_file)
-        if os.path.exists(self.token_file):
-            self.creds = self.store.get()
-            if not self.creds or self.creds.invalid:
-                self.authenticate()
-        else:
-            self.authenticate()
-        self.service = build('admin', 'directory_v1', http=self.creds.authorize(Http()))
+        self.creds = service_account.Credentials.from_service_account_file(self.SERVICE_ACCOUNT_FILE,
+                                                                           scopes=self.SCOPES)
+        if not self.creds.valid:
+            self.creds.refresh(Request())
 
-    def authenticate(self):
-        flow = client.flow_from_clientsecrets(self.creds_file, self.SCOPES)
-        # run_flow is quite weird and does things to argv
-        old_args = sys.argv
-        sys.argv = sys.argv[:1]
-        self.creds = tools.run_flow(flow, self.store)
-        sys.argv = old_args
+        delegated_creds = self.creds.with_subject(delegate_email)
+        self.service = build('admin', 'directory_v1', credentials=delegated_creds)
 
     def get_roles_for_user(self, user):
         if 'customSchemas' not in user:
@@ -44,7 +46,7 @@ class GoogleRoleManager:
         results = self.service.users().list(
             customer='my_customer',
             maxResults=100,
-            orderBy='email', 
+            orderBy='email',
             projection="full"
         ).execute()
         users = results.get('users', [])
