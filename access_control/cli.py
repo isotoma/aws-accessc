@@ -13,24 +13,32 @@
 # limitations under the License.
 
 import argparse
+import json
 import os
+import sys
 
 from .bookmarks import write_bookmarks
 from .config import accounts_with_role, conf
 from .google import GoogleRoleManager
 from .profiles import update_profiles
 
-aws_role_prefix = 'arn:aws:iam::{}:role'.format(conf['master-aws-account'])
-
 
 def handle_roles(args):
     """ Update the list of roles in the Google Directory against each user """
-    mgr = GoogleRoleManager(conf['saml-provider'], aws_role_prefix, conf['delegate_email'])
+    mgr = GoogleRoleManager(conf['saml-provider-name'], conf['google']['delegate-email'])
     if args.all:
         print("Setting all roles in Google Directory based on configuration")
         for username, roles in conf['users'].items():
-            print("{}: {}".format(username, ", ".join(roles)))
-            mgr.set_roles(username, roles)
+            user_roles = []
+            for role in roles:
+                if role in conf['roles'] and 'role-account' in conf['roles'][role]:
+                    account_id = conf['accounts'][conf['roles'][role]['role_account']]['account-id']
+                    user_roles.append({'role': role, 'account': conf['roles'][role]['role-account']})
+                else:
+                    account_id = conf['accounts'][conf['default-account']]['account-id']
+                    user_roles.append({'role': role, 'account': account_id})
+            print("{}: {}".format(username, ", ".join(["{}/{}".format(role['account'], role['role']) for role in user_roles])))
+            mgr.set_roles(username, user_roles)
     else:
         if args.email is None:
             results = mgr.get_roles()
@@ -48,14 +56,15 @@ def handle_roles(args):
 
 def get_profiles_for(email):
     chosen = set()
+    # Parse account/role_arn for each profile of the roles a user has access to 
     for role in conf['users'][email]:
-        if role in conf['roles'] and 'profiles' in conf['roles'][role]:
-            for d in conf['roles'][role]['profiles']:
-                account = d['account']
-                role = d['role']
+        if role in conf['roles'] and 'assume-profiles' in conf['roles'][role]:
+            for profile in conf['roles'][role]['assume-profiles']:
+                account = profile['account']
+                role = profile['role']
                 if account == '*':
-                    for name in accounts_with_role(role):
-                        chosen.add((name, role))
+                    for account_name in accounts_with_role(role):
+                        chosen.add((account_name, role))
                 else:
                     chosen.add((account, role))
 
@@ -64,7 +73,7 @@ def get_profiles_for(email):
     for profile in chosen:
         account = profile[0]
         role = profile[1]
-        account_id = conf['accounts'][account]['account']
+        account_id = conf['accounts'][account]['account-id']
         role_arn = "arn:aws:iam::{}:role/{}".format(account_id, role)
         region = conf['accounts'][account].get('region', default_region)
         profiles.append(dict(
@@ -81,7 +90,10 @@ def get_profiles_for(email):
 def handle_profiles(args):
     """ Update the user's aws config / credentials to match the profiles available to them """
     profiles = get_profiles_for(args.email)
-    update_profiles(profiles)
+    config = update_profiles(profiles, args.replace, not args.dry_run)
+    if args.dry_run:
+        # print config
+        config.write(sys.stdout)
 
 
 def handle_bookmarks(args):
@@ -92,6 +104,13 @@ def handle_bookmarks(args):
     write_bookmarks(profiles, args.filename, idpid, spid)
 
 
+def handle_schema(args):
+    mgr = GoogleRoleManager(conf['saml-provider-name'], conf['google']['delegate-email'])
+    customerId = conf['google']['idpid']
+    results = mgr.service.schemas().list(customerId=conf['google']['idpid']).execute()
+    print(json.dumps(results, sort_keys=True, indent=4))
+
+
 def main():
     email = os.environ.get('GOOGLE_USERNAME', None)
     parser = argparse.ArgumentParser()
@@ -99,12 +118,14 @@ def main():
     subparsers = parser.add_subparsers()
 
     roles = subparsers.add_parser('roles')
-    roles.add_argument('-a', '--all', action="store_true", help='set all roles')
+    roles.add_argument('-a', '--all', action='store_true', help="Set all roles")
     roles.add_argument('email', nargs='?')
     roles.add_argument('roles', nargs='*')
     roles.set_defaults(func=handle_roles)
 
     profiles = subparsers.add_parser('profiles')
+    profiles.add_argument('-r', '--replace', action='store_true', help="Replace all existing AWS profiles with managed roles")
+    profiles.add_argument('--dry-run', action='store_true', help="Display what config would be written, but don't write it to file")
     if email is None:
         profiles.add_argument('email', help="Your email address")
     profiles.set_defaults(email=email, func=handle_profiles)
@@ -114,6 +135,9 @@ def main():
     if email is None:
         bookmarks.add_argument('email', help="Your email address")
     bookmarks.set_defaults(email=email, func=handle_bookmarks)
+
+    schema = subparsers.add_parser('schema')
+    schema.set_defaults(func=handle_schema)
 
     args = parser.parse_args()
     if args.func is None:

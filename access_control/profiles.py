@@ -26,12 +26,19 @@ def backup(path):
             dest.write(source.read())
 
 
-def update_profiles(profiles):
+def update_profiles(profiles, replace_current=False, save_config=False):
     config_path = os.path.expanduser('~/.aws/config')
     config = ConfigParser()
+
     if os.path.exists(config_path):
         backup(config_path)
         config.read(config_path)
+
+    if replace_current:
+        for section in config.sections():
+            if section != 'default':
+                config.remove_section(section)
+
     for profile in profiles:
         name = "profile {}".format(profile['name'])
         if not config.has_section(name):
@@ -41,5 +48,8 @@ def update_profiles(profiles):
         config.set(name, 'source_profile', 'default')
         config.set(name, 'region', profile['region'])
 
-    with open(config_path, 'w') as out:
-        config.write(out)
+    if save_config:
+        with open(config_path, 'w') as out:
+            config.write(out)
+    
+    return config
