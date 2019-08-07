@@ -12,22 +12,26 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import json
+
 import os
 
+from google.auth.transport.requests import Request
 from google.oauth2 import service_account
 from googleapiclient.discovery import build
-from google.auth.transport.requests import Request
 
 
 class GoogleRoleManager:
 
-    SCOPES = ['https://www.googleapis.com/auth/admin.directory.user']
+    SCOPES = [
+        'https://www.googleapis.com/auth/admin.directory.user',
+        'https://www.googleapis.com/auth/admin.directory.userschema',
+    ]
     SERVICE_ACCOUNT_FILE = os.path.join(os.path.dirname(__file__), '..', 'service_credentials.json')
 
-    def __init__(self, provider, prefix, delegate_email):
+    def __init__(self, provider_name, delegate_email):
+        self.provider_name = provider_name
         self.creds = None
-        self.provider = provider
-        self.prefix = prefix
         self.creds = service_account.Credentials.from_service_account_file(self.SERVICE_ACCOUNT_FILE,
                                                                            scopes=self.SCOPES)
         if not self.creds.valid:
@@ -57,20 +61,23 @@ class GoogleRoleManager:
     def get_roles(self):
         return dict(self._get_all_roles())
 
-    def role_to_schema(self, role):
+    def role_to_schema(self, user_role):
+        provider = "arn:aws:iam::{}:saml-provider/{}".format(user_role['account'], self.provider_name)
+        role = "arn:aws:iam::{}:role/{}".format(user_role['account'], user_role['role'])
         return {
-            'value':  "{}/{},{}".format(self.prefix, role, self.provider),
-            'customType': role
+            'value':  "{},{}".format(role, provider),
+            'customType': user_role['role']
         }
 
-    def set_roles(self, username, roles):
+    def set_roles(self, username, user_roles):
         customSchemas = {
             'customSchemas': {
                 'SSO': {
-                    'role': list(map(self.role_to_schema, roles)),
-                    'SessionDuration': 43200,
+                    'role': list(map(self.role_to_schema, user_roles)),
+                    'duration': 43200
                 }
             }
         }
+        print("Adding role for {}".format(username))
         results = self.service.users().patch(userKey=username, body=customSchemas).execute()
         return results
