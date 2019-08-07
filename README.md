@@ -172,9 +172,9 @@ default-account: 'my-aws-account'
 
 <dl>
 <dt>saml-provider-name</dt>
-<dd>The name of the SAML IdP in your AWS account</dd>
+<dd>The name of the SAML IdP in your AWS account.</dd>
 <dt>default-region</dt>
-<dd>The AWS region of the default profile</dd>
+<dd>The AWS region of the default profile.</dd>
 <dt>default-account</dt>
 <dd>The account where login roles are located if not otherwise specified. A typical setup might have all login roles in one account (this one), and all additional roles are assumed in other accounts.</dd>
 </dl>
@@ -188,14 +188,14 @@ google:
   delegate-email: 'admin@yourdomain.com'
 ```
 
-**`idpid`**
-: The IdP ID of the G Suite domain (same as the customer ID).
-
-**`spid`**
-: The Service Provider ID of the AWS SAML App. This can be found in the url of the service config.
-
-**`delegate-email`**
-: The email of a G Suite admin user whose permissions are delegate to the tool for API access. The tool itself can only access APIs specified in the `scopes` field of the delegation setup.
+<dl>
+<dt>idpid</dt>
+<dd>The IdP ID of the G Suite domain (same as the customer ID).</dd>
+<dt>spid</dt>
+<dd>The Service Provider ID of the AWS SAML App. This can be found in the url of the service config.</dd>
+<dt>delegate-email</dt>
+<dd>The email of a G Suite admin user whose permissions are delegate to the tool for API access. The tool itself can only access APIs specified in the `scopes` field of the delegation setup.</dd>
+</dl>
 
 #### AWS accounts
 
@@ -215,8 +215,12 @@ accounts:
 
 These accounts are referenced by name elsewhere in the configuration.
 
-**`account-id`**
-: The numeric
+<dl>
+<dt>account-id</dt>
+<dd>The numeric id of the AWS account (used to construct role ARNs).</dd>
+<dt>regions</dt>
+<dd>The regions in which to create roles and profiles for this account.</dd>
+</dl>
 
 #### AWS role definitions
 
@@ -234,12 +238,88 @@ roles:
       role: developer
 ```
 
+Login roles are referenced by name in role mappings. 
+
+<dl>
+<dt>assume-profiles</dt>
+<dd>Roles that the login role can assume that will added as profiles to the AWS config of users with the login role</dd>
+<dt>account</dt>
+<dd>Reference to an account in the `accounts` section of `roles.yaml`.<dd>
+<dt>role</dt>
+<dd>The name of a role in that account</dd>
+</dl>
+
 #### User role mapping
 
 ```yaml
 users:
-  <YOUR_GOOGLE_EMAIL>:
+  user@yourdomain.com:
   - Developer
 ```
 
+Each user is identified by Google login email, and has a list of login roles referencing definitions in the `roles` section of `roles.yaml`.
+
 ### Setting user roles using `acccessc`
+
+*NB: All the following commands need the `service_credentials.json` file and a delegate email set in `roles.yaml`.*
+
+To list all existing role mappings:
+
+```bash
+accessc roles
+```
+
+To set roles for all users as per `roles.yaml`:
+
+```bash
+accessc roles --all
+```
+
+To set a single user's roles:
+
+```bash
+access roles user@yourdomain.com Developer Admin
+```
+
+Roles are not created automatically in the AWS accounts by the tool, and must already exist. Role creation may be added in future releases.
+
+### Viewing schema of G Suite directory
+
+The custom schema attributes of the SAML setup can be verified by running:
+
+```bash
+accessc schema
+```
+
+You should see something like the following:
+
+```json
+{
+    "etag": "\"XAsypnOPUm9mxokHB31cC07VbXs/hDT2ACjbO2nrT_uVUpNU3VQ_QzU\"",
+    "fields": [
+        {
+            "etag": "\"XRsypGOPUmlmxokHB51cC07Vb3s/mF8fcTzvlteJZ0DIlUljKGlhlfw\"",
+            "fieldId": "CfnqfA4pRxqP8i8ueR1wew==",
+            "fieldName": "role",
+            "fieldType": "STRING",
+            "kind": "admin#directory#schema#fieldspec",
+            "multiValued": true,
+            "readAccessType": "ADMINS_AND_SELF"
+        },
+        {
+            "displayName": "duration",
+            "etag": "\"nsb5Diw5qFeijkJuCE2Y6_ahoFE/vYn0fh2xzBCMELA2n-0MQPmFtWI\"",
+            "fieldId": "A4ckT32QFSXXMngBk7H5w==",
+            "fieldName": "duration",
+            "fieldType": "INT64",
+            "kind": "admin#directory#schema#fieldspec",
+            "readAccessType": "ADMINS_AND_SELF"
+        }
+    ],
+    "kind": "admin#directory#schema",
+    "schemaId": "JfLx5all7--VnMs-H39aNQ==",
+    "schemaName": "SSO"
+}
+```
+
+Currently, schema attributes cannot be created/updated using the tool, but this may be added in future releases. 
