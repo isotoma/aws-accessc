@@ -2,7 +2,7 @@
 Accessc is a command-line tool that lets you manage mappings between federated logins and roles in AWS. It also generates AWS config profiles for individuals users and a set of bookmarklets for easy access to roles in the AWS console.
 
 ## Access and profiles for end users
-Currently only google is supported as a SAML identity provider (IdP).
+Currently only Google is supported as a SAML identity provider (IdP).
 
 ### Federated Access Setup
 For command line access, install [aws-google-auth](https://github.com/cevoaustralia/aws-google-auth) in your login environment, e.g.:
@@ -20,15 +20,15 @@ export DURATION=43200
 alias aws-auth='aws-google-auth -p default'
 ```
 
-This will setup an alias `aws-auth` which will store these details in your aws default profile on login, and set the expiry of your access to 12 hours (this expiry must be increased from the default of 1 hour by your AWS admin for each login role you use). See the [aws-google-auth](https://github.com/cevoaustralia/aws-google-auth) documentation for additional details about that tool.
+This will setup an alias `aws-auth` which will store these details in your default AWS profile upon logging in, and set the expiry of your access to 12 hours (this expiry must be increased from the default of 1 hour by your AWS admin for each login role you use). See the [aws-google-auth](https://github.com/cevoaustralia/aws-google-auth) documentation for additional details about that tool.
 
-To login run:
+To authenticate to AWS with your Google login from the command line run:
 
 ```bash
 aws-auth
 ```
 
-Enter your google password, complete a captcha if this is your first login, and any 2FA steps. You will be offered a list of the login roles you have access to. It is a good idea to use the least priveleged role for the tasks you have in mind.
+Enter your Google password, complete a captcha if this is your first login, and any 2FA steps. You will be offered a list of the login roles in AWS you have access to. It is a good idea to use the least priveleged role for the tasks you have in mind.
 
 ### Generating AWS Profiles
 
@@ -46,7 +46,7 @@ and to spawn a shell environment to use the tool:
 pipenv shell
 ```
 
-You will need to obtain a `roles.yaml` file from your admin that specifies the AWS accounts and roles you will have access to. This also specifies which of these roles you can assume from a particular SAML login role. These roles will be added to your AWS config as profiles when you run the tool. It should look something like this:
+You will need to obtain a `roles.yaml` file from your admin that specifies the AWS accounts and roles you will have access to. This also specifies which of these account roles you can assume from each login role. The account roles will be added to your AWS config as profiles when you run `accessc profiles`. It should look something like this:
 
 ```yaml
 saml-provider-name: GoogleApps
@@ -95,3 +95,22 @@ accessc profiles
 This will add any profiles to your aws config (located at `~/.aws/config`) if they don't already exist. If you wish to replace all existing profiles use the `-r` or `--replace` options, and if you want to print out what your config would be without updating it use the `-d` or `--dry-run` options.
 
 You can use the `AWS_PROFILE` environment variable to select a profile as usual.
+
+### Generating Bookmarks
+
+You can also use `accessc` to generate HTML bookmarks which will include a login link to AWS via your IdP auth (Google), and bookmarklets for each role you can assume, which will switch to that role in the AWS console. These links will be grouped by account, but which ones you can actual use to switch in practice will be restricted by the login role you choose. You should refer to your `roles.yaml` file or ask your admin for more details.
+
+To generate bookmarks:
+
+```bash
+accessc bookmarks > ~/bookmarks.html
+```
+
+The HTML will be printed on standard out and can be redirected to a file of your choice, in this example `~/bookmarks.html`. This can then be imported into your web browser and then the AWS folder moved to your bookmarks toolbar.
+
+To use bookmarks to access the AWS console:
+
+1. Go to AWS &rightarrow; AWS Login in your bookmarks toolbar.
+2. Select the login role to access the AWS console as. It is a good idea to use the least priveleged role for the tasks you have in mind.
+3. If you need switch to a different role, go to the AWS folder in your bookmarks toolbar and select the role to switch to.
+4. To return to your login Role, click on the role name in the AWS console and then `Back to <YOUR_LOGIN_ROLE>`. 
