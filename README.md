@@ -188,7 +188,7 @@ google:
   delegate-email: 'admin@yourdomain.com'
 ```
 
-idpid
+*`idpid`*
 : The IdP ID of the G Suite domain (same as the customer ID).
 
 spid
