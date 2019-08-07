@@ -170,14 +170,14 @@ default-region: 'us-west-1'
 default-account: 'my-aws-account'
 ```
 
-saml-provider-name
-: The name of the SAML IdP in your AWS account.
-
-default-region
-: The AWS region of the default profile.
-
-default-account
-: The account where login roles are located if not otherwise specified. A typical setup might have all login roles in one account (this one), and all additional roles are assumed in other accounts.
+<dl>
+<dt>saml-provider-name</dt>
+<dd>The name of the SAML IdP in your AWS account</dd>
+<dt>default-region</dt>
+<dd>The AWS region of the default profile</dd>
+<dt>default-account</dt>
+<dd>The account where login roles are located if not otherwise specified. A typical setup might have all login roles in one account (this one), and all additional roles are assumed in other accounts.</dd>
+</dl>
 
 #### Google SAML configuration
 
@@ -191,16 +191,55 @@ google:
 **`idpid`**
 : The IdP ID of the G Suite domain (same as the customer ID).
 
-spid
+**`spid`**
 : The Service Provider ID of the AWS SAML App. This can be found in the url of the service config.
 
-delegate-email
+**`delegate-email`**
 : The email of a G Suite admin user whose permissions are delegate to the tool for API access. The tool itself can only access APIs specified in the `scopes` field of the delegation setup.
 
 #### AWS accounts
 
+```yaml
+accounts:
+  my-aws-account: 
+    account-id: '1234567890'
+    regions:
+    - us-west-1
+    - eu-west-2
+
+  my-other-aws-account:
+    account-id: '9876543210'
+    regions:
+    - eu-west-1
+```
+
+These accounts are referenced by name elsewhere in the configuration.
+
+**`account-id`**
+: The numeric
+
 #### AWS role definitions
 
+```yaml
+roles:
+  Root:
+    assume-profiles:
+    - account: my-aws-account
+      role: root
+    - account: my-other-aws-account
+      role: root
+  Developer:
+    assume-profiles:
+    - account: my-other-aws-account
+      role: developer
+```
+
 #### User role mapping
+
+```yaml
+users:
+  <YOUR_GOOGLE_EMAIL>:
+  - Developer
+```
 
 ### Setting user roles using `acccessc`
