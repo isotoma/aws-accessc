@@ -78,6 +78,7 @@ class GoogleRoleManager:
                 }
             }
         }
-        print("Adding role for {}".format(username))
+        print("Adding role(s) for {}".format(username))
         results = self.service.users().patch(userKey=username, body=customSchemas).execute()
+        print(results)
         return results

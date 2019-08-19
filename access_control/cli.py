@@ -23,20 +23,25 @@ from .google import GoogleRoleManager
 from .profiles import update_profiles
 
 
+def generate_role_entries(roles):
+    user_roles = []
+    for role in roles:
+        if role in conf['roles'] and 'role-account' in conf['roles'][role]:
+            account_id = conf['accounts'][conf['roles'][role]['role_account']]['account-id']
+            user_roles.append({'role': role, 'account': conf['roles'][role]['role-account']})
+        else:
+            account_id = conf['accounts'][conf['default-account']]['account-id']
+            user_roles.append({'role': role, 'account': account_id})
+    return user_roles
+
+
 def handle_roles(args):
     """ Update the list of roles in the Google Directory against each user """
     mgr = GoogleRoleManager(conf['saml-provider-name'], conf['google']['delegate-email'])
     if args.all:
         print("Setting all roles in Google Directory based on configuration")
         for username, roles in conf['users'].items():
-            user_roles = []
-            for role in roles:
-                if role in conf['roles'] and 'role-account' in conf['roles'][role]:
-                    account_id = conf['accounts'][conf['roles'][role]['role_account']]['account-id']
-                    user_roles.append({'role': role, 'account': conf['roles'][role]['role-account']})
-                else:
-                    account_id = conf['accounts'][conf['default-account']]['account-id']
-                    user_roles.append({'role': role, 'account': account_id})
+            user_roles = generate_role_entries(roles)
             print("{}: {}".format(username, ", ".join(["{}/{}".format(role['account'], role['role']) for role in user_roles])))
             mgr.set_roles(username, user_roles)
     else:
@@ -48,7 +53,9 @@ def handle_roles(args):
         else:
             if len(args.roles) > 0:
                 print("Setting roles to: {}".format(args.roles))
-                mgr.set_roles(args.email, args.roles)
+                user_roles = generate_role_entries(arg.roles)
+                print(user_roles)
+                mgr.set_roles(args.email, user_roles)
             else:
                 roles = mgr.get_roles()[args.email]
                 print("\n".join(roles))
@@ -92,7 +99,6 @@ def handle_profiles(args):
     profiles = get_profiles_for(args.email)
     config = update_profiles(profiles, args.replace, not args.dry_run)
     if args.dry_run:
-        # print config
         config.write(sys.stdout)
 
 
