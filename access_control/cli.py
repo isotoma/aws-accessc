@@ -53,7 +53,7 @@ def handle_roles(args):
         else:
             if len(args.roles) > 0:
                 print("Setting roles to: {}".format(args.roles))
-                user_roles = generate_role_entries(arg.roles)
+                user_roles = generate_role_entries(args.roles)
                 print(user_roles)
                 mgr.set_roles(args.email, user_roles)
             else:
