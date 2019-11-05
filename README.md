@@ -278,7 +278,7 @@ accessc roles --all
 To set a single user's roles:
 
 ```bash
-access roles user@yourdomain.com Developer Admin
+accessc roles user@yourdomain.com Developer Admin
 ```
 
 Roles are not created automatically in the AWS accounts by the tool, and must already exist. Role creation may be added in future releases.
